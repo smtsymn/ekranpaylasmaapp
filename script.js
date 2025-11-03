@@ -429,10 +429,26 @@ class ScreenShareApp {
                 this.updateRoomInfo(); // Oda bilgisini güncelle
             });
 
-            this.socket.on('user-joined', (userId, mode) => {
-                console.log('Kullanıcı ortak odaya katıldı:', userId, mode);
+            this.socket.on('user-joined', (userId, mode, socketId) => {
+                console.log('Kullanıcı ortak odaya katıldı:', userId, mode, socketId);
                 if (mode === 'broadcaster' && this.currentMode === 'viewer') {
-                    this.handleBroadcasterJoined(userId);
+                    // Yayıncı katıldı, bağlantı kur
+                    if (socketId) {
+                        this.handleBroadcasterJoined(socketId);
+                    } else {
+                        // Socket ID yoksa, odadaki yayıncıları sorgula
+                        this.requestBroadcasters();
+                    }
+                }
+            });
+            
+            // Yayıncı listesi alındığında
+            this.socket.on('broadcasters-list', (broadcasters) => {
+                if (this.currentMode === 'viewer' && broadcasters.length > 0) {
+                    console.log('Yayıncılar bulundu:', broadcasters);
+                    broadcasters.forEach(broadcaster => {
+                        this.handleBroadcasterJoined(broadcaster.socketId);
+                    });
                 }
             });
 
@@ -444,16 +460,32 @@ class ScreenShareApp {
                 }
             });
 
-            this.socket.on('offer', (offer, fromId) => {
-                this.handleOffer(offer, fromId);
+            this.socket.on('offer', (data) => {
+                this.handleOffer(data);
             });
 
-            this.socket.on('answer', (answer, fromId) => {
-                this.handleAnswer(answer, fromId);
+            this.socket.on('answer', (data) => {
+                this.handleAnswer(data);
             });
 
-            this.socket.on('ice-candidate', (candidate, fromId) => {
-                this.handleIceCandidate(candidate, fromId);
+            this.socket.on('ice-candidate', (data) => {
+                this.handleIceCandidate(data);
+            });
+
+            // Chat mesajı alındığında
+            this.socket.on('chat-message', (data) => {
+                if (data.userId !== this.userId) {
+                    this.addChatMessage(data.userId, data.message, false);
+                }
+            });
+
+            // Yayıncı stream başladığında bildirim
+            this.socket.on('broadcast-started', (broadcasterId, broadcasterUserId) => {
+                if (this.currentMode === 'viewer') {
+                    console.log('Yayıncı stream başladı:', broadcasterUserId);
+                    // Yayıncı ile bağlantı kur
+                    this.handleBroadcasterJoined(broadcasterId);
+                }
             });
 
         } catch (error) {
@@ -499,6 +531,13 @@ class ScreenShareApp {
             console.log(`Ortak odaya katılıyor: ${this.roomId} | Kullanıcı: ${this.userId} | Mod: ${this.currentMode}`);
             this.socket.emit('join-room', this.roomId, this.userId, this.currentMode);
             this.showNotification(`Ortak odaya katıldınız: ${this.roomId}`, 'success');
+            
+            // Viewer ise ve yayıncı varsa bağlan
+            if (this.currentMode === 'viewer') {
+                setTimeout(() => {
+                    this.requestBroadcasters();
+                }, 1000);
+            }
         } else {
             console.warn('Socket bağlantısı yok, odaya katılınamıyor');
             // Socket bağlantısı yoksa, bağlantıyı tekrar dene
@@ -507,6 +546,13 @@ class ScreenShareApp {
                     this.initSocket();
                 }
             }, 2000);
+        }
+    }
+
+    // Yayıncıları sorgula
+    requestBroadcasters() {
+        if (this.socket && this.socket.connected && this.roomId) {
+            this.socket.emit('request-broadcasters', this.roomId);
         }
     }
 
@@ -565,80 +611,163 @@ class ScreenShareApp {
     async handleBroadcasterJoined(broadcasterId) {
         if (this.currentMode !== 'viewer') return;
         
+        // Eğer zaten bu yayıncı ile bağlantı varsa, tekrar bağlanma
+        if (this.peerConnections[broadcasterId]) {
+            console.log('Zaten bu yayıncı ile bağlantı var:', broadcasterId);
+            return;
+        }
+        
         try {
             const peerConnection = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
             });
 
             this.peerConnections[broadcasterId] = peerConnection;
 
             peerConnection.ontrack = (event) => {
+                console.log('Yayın stream alındı:', broadcasterId);
                 const videoElement = document.getElementById('screen-view');
-                videoElement.srcObject = event.streams[0];
-                this.isSharing = true;
-                this.updateUI();
-                this.showNotification('Yayın başladı!', 'success');
-            };
-
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate && this.socket) {
-                    this.socket.emit('ice-candidate', event.candidate, broadcasterId);
+                if (videoElement) {
+                    videoElement.srcObject = event.streams[0];
+                    this.isSharing = true;
+                    this.updateUI();
+                    this.showNotification('Yayın başladı!', 'success');
                 }
             };
 
-            const offer = await peerConnection.createOffer();
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE connection state:', peerConnection.iceConnectionState);
+                if (peerConnection.iceConnectionState === 'failed') {
+                    console.error('ICE bağlantısı başarısız');
+                    this.showNotification('Bağlantı hatası', 'error');
+                }
+            };
+
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate && this.socket && this.socket.connected) {
+                    this.socket.emit('ice-candidate', {
+                        candidate: event.candidate,
+                        roomId: this.roomId,
+                        targetId: broadcasterId
+                    });
+                }
+            };
+
+            const offer = await peerConnection.createOffer({
+                offerToReceiveAudio: true,
+                offerToReceiveVideo: true
+            });
             await peerConnection.setLocalDescription(offer);
-            this.socket.emit('offer', offer, broadcasterId);
+            
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('offer', {
+                    offer: offer,
+                    roomId: this.roomId,
+                    targetId: broadcasterId,
+                    fromId: this.socket.id
+                });
+            }
 
         } catch (error) {
             console.error('Bağlantı hatası:', error);
+            this.showNotification('Yayın bağlantısı kurulamadı', 'error');
         }
     }
 
     // YENİ EKLENEN: Offer alındığında yayıncı tarafında çalışır
-    async handleOffer(offer, fromId) {
-        if (this.currentMode !== 'broadcaster' || !this.localStream) return;
+    async handleOffer(data) {
+        const { offer, fromId } = data;
+        if (this.currentMode !== 'broadcaster' || !this.localStream) {
+            console.log('Offer reddedildi - broadcaster değil veya stream yok');
+            return;
+        }
+
+        // Eğer zaten bu viewer ile bağlantı varsa, tekrar bağlanma
+        if (this.peerConnections[fromId]) {
+            console.log('Zaten bu viewer ile bağlantı var:', fromId);
+            return;
+        }
 
         try {
             const peerConnection = new RTCPeerConnection({
-                iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
             });
 
             this.peerConnections[fromId] = peerConnection;
 
+            // Stream'i ekle
             this.localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, this.localStream);
             });
 
-            peerConnection.onicecandidate = (event) => {
-                if (event.candidate && this.socket) {
-                    this.socket.emit('ice-candidate', event.candidate, fromId);
+            peerConnection.oniceconnectionstatechange = () => {
+                console.log('ICE connection state (broadcaster):', peerConnection.iceConnectionState);
+                if (peerConnection.iceConnectionState === 'failed') {
+                    console.error('ICE bağlantısı başarısız (broadcaster)');
                 }
             };
 
-            await peerConnection.setRemoteDescription(offer);
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate && this.socket && this.socket.connected) {
+                    this.socket.emit('ice-candidate', {
+                        candidate: event.candidate,
+                        roomId: this.roomId,
+                        targetId: fromId
+                    });
+                }
+            };
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
             const answer = await peerConnection.createAnswer();
             await peerConnection.setLocalDescription(answer);
-            this.socket.emit('answer', answer, fromId);
+            
+            if (this.socket && this.socket.connected) {
+                this.socket.emit('answer', {
+                    answer: answer,
+                    roomId: this.roomId,
+                    targetId: fromId,
+                    fromId: this.socket.id
+                });
+            }
+
+            console.log('Offer kabul edildi ve answer gönderildi:', fromId);
 
         } catch (error) {
             console.error('Offer hatası:', error);
+            this.showNotification('Viewer bağlantısı kurulamadı', 'error');
         }
     }
 
     // YENİ EKLENEN: Answer işleme
-    async handleAnswer(answer, fromId) {
+    async handleAnswer(data) {
+        const { answer, fromId } = data;
         const peerConnection = this.peerConnections[fromId];
         if (peerConnection) {
-            await peerConnection.setRemoteDescription(answer);
+            try {
+                await peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
+                console.log('Answer alındı ve işlendi:', fromId);
+            } catch (error) {
+                console.error('Answer işleme hatası:', error);
+            }
         }
     }
 
     // YENİ EKLENEN: ICE candidate işleme
-    async handleIceCandidate(candidate, fromId) {
-        const peerConnection = this.peerConnections[fromId];
-        if (peerConnection) {
-            await peerConnection.addIceCandidate(candidate);
+    async handleIceCandidate(data) {
+        const { candidate, targetId } = data;
+        const peerConnection = this.peerConnections[targetId];
+        if (peerConnection && candidate) {
+            try {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (error) {
+                console.error('ICE candidate ekleme hatası:', error);
+            }
         }
     }
 
@@ -676,10 +805,20 @@ class ScreenShareApp {
             this.updateUI();
             this.hideStatusOverlay();
             
+            // Odaya yayın başladığını bildir
+            if (this.socket && this.socket.connected && this.roomId) {
+                this.socket.emit('broadcast-started', this.roomId, this.userId);
+            }
+
             // Mevcut peer connection'lara stream ekle
             Object.values(this.peerConnections).forEach(pc => {
                 this.localStream.getTracks().forEach(track => {
-                    pc.addTrack(track, this.localStream);
+                    const sender = pc.getSenders().find(s => s.track && s.track.kind === track.kind);
+                    if (sender) {
+                        sender.replaceTrack(track);
+                    } else {
+                        pc.addTrack(track, this.localStream);
+                    }
                 });
             });
 
@@ -1144,12 +1283,22 @@ class ScreenShareApp {
         const input = document.getElementById('chat-input');
         const message = input.value.trim();
         
-        if (message) {
-            this.addChatMessage(this.userId, message, true);
-            input.value = '';
-            
-            // In real app, this would send to server for other users
-            // For now, just send locally
+        if (!message) return;
+        
+        // Kendi mesajını göster
+        this.addChatMessage(this.userId, message, true);
+        input.value = '';
+        
+        // Socket.IO ile odaya gönder
+        if (this.socket && this.socket.connected && this.roomId) {
+            this.socket.emit('chat-message', {
+                roomId: this.roomId,
+                userId: this.userId,
+                message: message,
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            this.showNotification('Bağlantı yok, mesaj gönderilemedi', 'error');
         }
     }
 

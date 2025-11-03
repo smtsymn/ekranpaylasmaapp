@@ -45,25 +45,111 @@ io.on('connection', (socket) => {
         
         console.log(`Kullanıcı odaya katıldı: ${userId} (${socket.id}) | Oda: ${roomId} | Mod: ${mode} | Toplam: ${userCount}`);
         
-        // Odadaki diğer kullanıcılara bildir
-        socket.to(roomId).emit('user-joined', userId, mode);
+        // Odadaki diğer kullanıcılara bildir (socket.id ile)
+        socket.to(roomId).emit('user-joined', userId, mode, socket.id);
         
         // Kullanıcıya başarılı katılım bildirimi gönder
         socket.emit('room-joined', roomId, userCount);
+        
+        // Viewer ise ve odada yayıncı varsa, yayıncı listesini gönder
+        if (mode === 'viewer') {
+            const roomClients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+            const broadcasters = [];
+            
+            roomClients.forEach(clientId => {
+                const clientSocket = io.sockets.sockets.get(clientId);
+                if (clientSocket && clientSocket.data?.mode === 'broadcaster') {
+                    broadcasters.push({
+                        socketId: clientId,
+                        userId: clientSocket.data?.userId
+                    });
+                }
+            });
+            
+            if (broadcasters.length > 0) {
+                setTimeout(() => {
+                    socket.emit('broadcasters-list', broadcasters);
+                }, 500);
+            }
+        }
     });
 
-    socket.on('offer', (offer, targetId) => {
-        console.log(`Offer gönderiliyor: ${socket.id} -> ${targetId}`);
-        socket.to(targetId).emit('offer', offer, socket.id);
+    // Yayıncı listesi isteği
+    socket.on('request-broadcasters', (roomId) => {
+        if (roomId && socket.data?.roomId === roomId) {
+            const roomClients = Array.from(io.sockets.adapter.rooms.get(roomId) || []);
+            const broadcasters = [];
+            
+            roomClients.forEach(clientId => {
+                const clientSocket = io.sockets.sockets.get(clientId);
+                if (clientSocket && clientSocket.data?.mode === 'broadcaster') {
+                    broadcasters.push({
+                        socketId: clientId,
+                        userId: clientSocket.data?.userId
+                    });
+                }
+            });
+            
+            socket.emit('broadcasters-list', broadcasters);
+        }
     });
 
-    socket.on('answer', (answer, targetId) => {
-        console.log(`Answer gönderiliyor: ${socket.id} -> ${targetId}`);
-        socket.to(targetId).emit('answer', answer, socket.id);
+    // Chat mesajı
+    socket.on('chat-message', (data) => {
+        const { roomId, userId, message, timestamp } = data;
+        if (roomId && socket.data?.roomId === roomId) {
+            console.log(`Chat mesajı: ${userId} -> Oda: ${roomId}`);
+            // Odaya mesajı broadcast et
+            io.to(roomId).emit('chat-message', {
+                userId,
+                message,
+                timestamp
+            });
+        }
     });
 
-    socket.on('ice-candidate', (candidate, targetId) => {
-        socket.to(targetId).emit('ice-candidate', candidate, socket.id);
+    // Yayın başladığında
+    socket.on('broadcast-started', (roomId, userId) => {
+        if (roomId && socket.data?.roomId === roomId) {
+            console.log(`Yayın başladı: ${userId} -> Oda: ${roomId}`);
+            // Odaya yayın başladığını bildir (socket.id ile yayıncı ID'si)
+            socket.to(roomId).emit('broadcast-started', socket.id, userId);
+        }
+    });
+
+    // WebRTC Offer
+    socket.on('offer', (data) => {
+        const { offer, roomId, targetId, fromId } = data;
+        if (targetId) {
+            console.log(`Offer gönderiliyor: ${fromId || socket.id} -> ${targetId}`);
+            socket.to(targetId).emit('offer', {
+                offer,
+                fromId: fromId || socket.id
+            });
+        }
+    });
+
+    // WebRTC Answer
+    socket.on('answer', (data) => {
+        const { answer, roomId, targetId, fromId } = data;
+        if (targetId) {
+            console.log(`Answer gönderiliyor: ${fromId || socket.id} -> ${targetId}`);
+            socket.to(targetId).emit('answer', {
+                answer,
+                fromId: fromId || socket.id
+            });
+        }
+    });
+
+    // WebRTC ICE Candidate
+    socket.on('ice-candidate', (data) => {
+        const { candidate, roomId, targetId } = data;
+        if (targetId) {
+            socket.to(targetId).emit('ice-candidate', {
+                candidate,
+                targetId: socket.id
+            });
+        }
     });
 
     socket.on('disconnect', () => {
