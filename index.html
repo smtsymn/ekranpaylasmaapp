@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Real-Time Screen Share Pro</title>
+    <meta name="description" content="Profesyonel gerçek zamanlı ekran paylaşım uygulaması">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen" class="loading-screen">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <h2>Yükleniyor...</h2>
+        </div>
+    </div>
+
+    <!-- Room Selection Modal - Oda Kur/Giriş -->
+    <div id="room-modal" class="modal">
+        <div class="modal-content room-selection">
+            <div class="modal-header">
+                <h3><i class="fas fa-door-open"></i> Oda Seçimi</h3>
+            </div>
+            <div class="modal-body">
+                <div class="room-options">
+                    <div class="room-option" id="create-room-option">
+                        <div class="room-icon">
+                            <i class="fas fa-plus-circle"></i>
+                        </div>
+                        <h4>Yeni Oda Oluştur</h4>
+                        <p>Yeni bir oda oluşturup başkalarını davet edin</p>
+                        <button class="btn btn-primary" id="create-room-btn">
+                            <i class="fas fa-plus"></i> Oda Oluştur
+                        </button>
+                    </div>
+                    <div class="room-option" id="join-room-option">
+                        <div class="room-icon">
+                            <i class="fas fa-sign-in-alt"></i>
+                        </div>
+                        <h4>Odaya Katıl</h4>
+                        <p>Oda kodunu girerek mevcut bir odaya katılın</p>
+                        <div class="room-code-input">
+                            <input type="text" id="room-code-input" placeholder="Oda kodunu girin" maxlength="20">
+                            <button class="btn btn-primary" id="join-room-btn">
+                                <i class="fas fa-arrow-right"></i> Katıl
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <div class="room-footer">
+                    <div class="room-info-text">
+                        <i class="fas fa-info-circle"></i>
+                        <span>Oda kodu oluşturulduğunda size gösterilecektir</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mode Selection Modal -->
+    <div id="mode-modal" class="modal">
+        <div class="modal-content mode-selection">
+            <div class="modal-header">
+                <h3><i class="fas fa-users"></i> Mod Seçimi</h3>
+            </div>
+            <div class="modal-body">
+                <div class="mode-options">
+                    <div class="mode-option" data-mode="viewer">
+                        <div class="mode-icon">
+                            <i class="fas fa-eye"></i>
+                        </div>
+                        <h4>İzleyici Modu</h4>
+                        <p>Başkalarının paylaştığı ekranları izleyin</p>
+                        <ul>
+                            <li>Yayınları izleyin</li>
+                            <li>Chat yapın</li>
+                            <li>Ayarları değiştirin</li>
+                        </ul>
+                        <div class="mode-url-info">
+                            <small>URL: ?room=...&mode=viewer</small>
+                        </div>
+                    </div>
+                    <div class="mode-option" data-mode="broadcaster">
+                        <div class="mode-icon">
+                            <i class="fas fa-broadcast-tower"></i>
+                        </div>
+                        <h4>Yayıncı Modu</h4>
+                        <p>Kendi ekranınızı paylaşın</p>
+                        <ul>
+                            <li>Ekran paylaşımı yapın</li>
+                            <li>Ses paylaşın</li>
+                            <li>İzleyicileri yönetin</li>
+                        </ul>
+                        <div class="mode-url-info">
+                            <small>URL: ?room=...&mode=broadcaster</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="mode-footer">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="remember-mode">
+                        <span class="checkmark"></span>
+                        Mod seçimini hatırla
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <div class="header-content">
+                <div class="logo">
+                    <i class="fas fa-desktop"></i>
+                    <h1>ScreenShare Pro</h1>
+                    <span id="mode-badge" class="mode-badge hidden"></span>
+                </div>
+                <div class="header-controls">
+                    <div class="connection-info">
+                        <span id="connection-status" class="status-text">Bağlantı yok</span>
+                        <div id="status-indicator" class="status-dot"></div>
+                        <span id="room-info" class="room-info"></span> <!-- Yeni eklenen -->
+                    </div>
+                    <button id="settings-btn" class="btn btn-icon" title="Ayarlar">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <button id="switch-mode-btn" class="btn btn-icon" title="Mod Değiştir">
+                        <i class="fas fa-exchange-alt"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container">
+            <div class="content-grid">
+                <!-- Video Section -->
+                <div class="video-section">
+                    <div class="video-container">
+                        <video id="screen-view" autoplay playsinline muted></video>
+                        
+                        <!-- Placeholder -->
+                        <div id="placeholder" class="video-placeholder">
+                            <div class="placeholder-content">
+                                <div class="placeholder-icon">
+                                    <i class="fas fa-desktop"></i>
+                                </div>
+                                <h3 id="placeholder-title">Ekran Paylaşımı Başlatın</h3>
+                                <p id="placeholder-description">Profesyonel ekran paylaşımı için aşağıdaki butona tıklayın</p>
+                                <button id="share-btn" class="btn btn-primary btn-large hidden">
+                                    <i class="fas fa-share-alt"></i>
+                                    Ekran Paylaş
+                                </button>
+                                <div id="viewer-waiting" class="viewer-waiting hidden">
+                                    <div class="waiting-spinner"></div>
+                                    <p>Yayıncı bağlanmayı bekliyor...</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Video Controls Overlay -->
+                        <div id="video-controls" class="video-controls hidden">
+                            <div class="control-buttons">
+                                <button id="fullscreen-btn" class="btn btn-control" title="Tam Ekran">
+                                    <i class="fas fa-expand"></i>
+                                </button>
+                                <button id="quality-btn" class="btn btn-control" title="Kalite">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Status Overlay -->
+                        <div id="status-overlay" class="status-overlay hidden">
+                            <div class="status-content">
+                                <i class="fas fa-circle-notch fa-spin"></i>
+                                <span>Bağlantı kuruluyor...</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Control Panel -->
+                    <div class="control-panel">
+                        <div class="control-group">
+                            <button id="toggle-audio-btn" class="btn btn-secondary" disabled>
+                                <i class="fas fa-microphone"></i>
+                                <span>Ses</span>
+                            </button>
+                            <button id="toggle-video-btn" class="btn btn-secondary" disabled>
+                                <i class="fas fa-video"></i>
+                                <span>Video</span>
+                            </button>
+                            <button id="stop-btn" class="btn btn-danger" disabled>
+                                <i class="fas fa-stop"></i>
+                                <span>Durdur</span>
+                            </button>
+                        </div>
+                        
+                        <div class="quality-indicator">
+                            <span id="quality-text">Kalite: Yüksek</span>
+                            <div class="quality-bar">
+                                <div id="quality-level" class="quality-fill"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <div class="sidebar">
+                    <!-- Chat Section -->
+                    <div class="sidebar-section chat-section">
+                        <div class="chat-header">
+                            <h3><i class="fas fa-comments"></i> Chat</h3>
+                            <button id="toggle-chat" class="btn btn-icon btn-small" title="Chat'i Gizle/Göster">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="chat-container" id="chat-container">
+                            <div class="chat-messages" id="chat-messages">
+                                <div class="chat-welcome">
+                                    <i class="fas fa-comments"></i>
+                                    <p>Chat'e hoş geldiniz!</p>
+                                </div>
+                            </div>
+                            <div class="chat-input-container">
+                                <input type="text" id="chat-input" class="chat-input" placeholder="Mesajınızı yazın..." maxlength="200">
+                                <button id="send-chat" class="btn btn-primary btn-small">
+                                    <i class="fas fa-paper-plane"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Voice Chat -->
+                    <div class="sidebar-section voice-section">
+                        <div class="voice-header">
+                            <h3><i class="fas fa-microphone"></i> Sesli Chat</h3>
+                            <button id="toggle-voice" class="btn btn-icon btn-small" title="Sesli Chat'i Gizle/Göster">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="voice-container" id="voice-container">
+                            <div class="voice-status">
+                                <div class="voice-indicator">
+                                    <i class="fas fa-microphone-slash"></i>
+                                    <span>Ses kapalı</span>
+                                </div>
+                            </div>
+                            <div class="voice-controls">
+                                <button id="join-voice" class="btn btn-success btn-small">
+                                    <i class="fas fa-microphone"></i>
+                                    Sese Katıl
+                                </button>
+                                <button id="leave-voice" class="btn btn-danger btn-small hidden">
+                                    <i class="fas fa-phone-slash"></i>
+                                    Sesten Ayrıl
+                                </button>
+                            </div>
+                            <div class="voice-participants" id="voice-participants">
+                                <p class="no-participants">Henüz kimse sese katılmadı</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quick Info -->
+                    <div class="sidebar-section info-section">
+                        <div class="info-header">
+                            <h3><i class="fas fa-info-circle"></i> Bilgi</h3>
+                            <button id="toggle-info" class="btn btn-icon btn-small" title="Bilgi'yi Gizle/Göster">
+                                <i class="fas fa-chevron-down"></i>
+                            </button>
+                        </div>
+                        <div class="info-container" id="info-container">
+                            <div class="info-content" id="info-content">
+                                <!-- Info content will be loaded dynamically -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Stats -->
+                    <div class="sidebar-section">
+                        <h3><i class="fas fa-chart-line"></i> İstatistikler</h3>
+                        <div class="stats-grid">
+                            <div class="stat-item">
+                                <div class="stat-value" id="fps-counter">0</div>
+                                <div class="stat-label">FPS</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="latency-counter">0ms</div>
+                                <div class="stat-label">Gecikme</div>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="bitrate-counter">0</div>
+                                <div class="stat-label">Bitrate</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-cog"></i> Ayarlar</h3>
+                <button id="close-settings" class="btn btn-icon">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="setting-group">
+                    <label for="video-quality">Video Kalitesi</label>
+                    <select id="video-quality" class="form-select">
+                        <option value="high">Yüksek (1080p)</option>
+                        <option value="medium" selected>Orta (720p)</option>
+                        <option value="low">Düşük (480p)</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label for="frame-rate">Kare Hızı</label>
+                    <select id="frame-rate" class="form-select">
+                        <option value="60">60 FPS</option>
+                        <option value="30" selected>30 FPS</option>
+                        <option value="24">24 FPS</option>
+                    </select>
+                </div>
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-quality" checked>
+                        <span class="checkmark"></span>
+                        Otomatik kalite ayarı
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="show-stats" checked>
+                        <span class="checkmark"></span>
+                        İstatistikleri göster
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-join">
+                        <span class="checkmark"></span>
+                        Otomatik mod seçimi (izleyici)
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="chat-notifications" checked>
+                        <span class="checkmark"></span>
+                        Chat bildirim sesi
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="voice-notifications" checked>
+                        <span class="checkmark"></span>
+                        Sesli chat bildirimleri
+                    </label>
+                </div>
+                <div class="setting-group">
+                    <label for="notification-volume">Bildirim Sesi</label>
+                    <input type="range" id="notification-volume" class="form-range" min="0" max="100" value="50">
+                    <span id="volume-display">50%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Container -->
+    <div id="notification-container" class="notification-container"></div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-info">
+                    <p>&copy; 2024 ScreenShare Pro. Tüm hakları saklıdır.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">Gizlilik</a>
+                    <a href="#" class="footer-link">Kullanım Şartları</a>
+                    <a href="#" class="footer-link">Yardım</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Socket.IO client kütüphanesini ekleyin (script.js'den önce) -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <script src="script.js"></script>
+</body>
+</html> 
