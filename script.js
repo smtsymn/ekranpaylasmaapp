@@ -654,15 +654,37 @@ class ScreenShareApp {
             this.peerConnections[broadcasterId] = peerConnection;
 
             peerConnection.ontrack = (event) => {
-                console.log('Yayın stream alındı:', broadcasterId);
-                const videoElement = document.getElementById('screen-view');
-                if (videoElement) {
-                    videoElement.srcObject = event.streams[0];
-                    // Viewer tarafında sesi açmayı dene
-                    this.enableViewerAudio(videoElement);
-                    this.isSharing = true;
-                    this.updateUI();
-                    this.showNotification('Yayın başladı!', 'success');
+                const kind = event.track?.kind;
+                if (kind === 'video') {
+                    console.log('Yayın video alındı:', broadcasterId);
+                    const videoElement = document.getElementById('screen-view');
+                    if (videoElement) {
+                        videoElement.srcObject = event.streams[0];
+                        // Viewer tarafında sesi açmayı dene (video sesi varsa)
+                        this.enableViewerAudio(videoElement);
+                        this.isSharing = true;
+                        this.updateUI();
+                        this.showNotification('Yayın başladı!', 'success');
+                    }
+                } else if (kind === 'audio') {
+                    console.log('Yayın ses alındı:', broadcasterId);
+                    const audioId = `remote-audio-${broadcasterId}`;
+                    let audioEl = document.getElementById(audioId);
+                    if (!audioEl) {
+                        audioEl = document.createElement('audio');
+                        audioEl.id = audioId;
+                        audioEl.autoplay = true;
+                        audioEl.playsInline = true;
+                        audioEl.style.display = 'none';
+                        document.body.appendChild(audioEl);
+                    }
+                    audioEl.srcObject = event.streams[0];
+                    audioEl.play().catch(() => {
+                        // Kullanıcı etkileşimi gerekebilir
+                        this.showNotification('Sesi başlatmak için “Ses Aç” butonuna tıklayın', 'warning');
+                        const btn = document.getElementById('unmute-btn');
+                        if (btn) btn.classList.remove('hidden');
+                    });
                 }
             };
 
@@ -1600,7 +1622,15 @@ class ScreenShareApp {
                         btn.classList.remove('hidden');
                         btn.onclick = () => {
                             videoEl.muted = false;
-                            videoEl.play().then(() => btn.classList.add('hidden'));
+                            // Tüm uzak audio elementlerini de oynatmayı dene
+                            const remoteAudios = Array.from(document.querySelectorAll('audio[id^="remote-audio-"]'));
+                            Promise.allSettled([
+                                videoEl.play(),
+                                ...remoteAudios.map(a => {
+                                    try { a.muted = false; } catch(_) {}
+                                    return a.play();
+                                })
+                            ]).then(() => btn.classList.add('hidden'));
                         };
                     }
                 });
