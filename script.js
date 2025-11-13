@@ -33,7 +33,8 @@ class ScreenShareApp {
         this.voiceParticipants = [];
         this.isInVoiceChat = false;
         this.notificationSound = null;
-        this.userId = this.generateUserId();
+        this.userId = (localStorage.getItem('nickname') || '').trim() || this.generateUserId();
+        this.micStream = null;
         
         // WebRTC properties
         this.socket = null;
@@ -88,6 +89,9 @@ class ScreenShareApp {
             
             // Enter tuşu ile giriş yapma
             const roomCodeInput = document.getElementById('room-code-input');
+            const nicknameInputs = [document.getElementById('nickname-input-create'), document.getElementById('nickname-input-join')].filter(Boolean);
+            const savedNick = (localStorage.getItem('nickname') || '').trim();
+            nicknameInputs.forEach(inp => { if (savedNick) inp.value = savedNick; });
             if (roomCodeInput) {
                 roomCodeInput.addEventListener('keypress', (e) => {
                     if (e.key === 'Enter') {
@@ -108,6 +112,17 @@ class ScreenShareApp {
 
     // YENİ EKLENEN: Yeni oda oluştur
     createRoom() {
+        // Nickname kontrolü
+        const nickInput = document.getElementById('nickname-input-create');
+        const nickname = (nickInput?.value || '').trim();
+        if (!nickname) {
+            this.showNotification('Lütfen bir takma ad girin', 'error');
+            nickInput?.focus();
+            return;
+        }
+        this.userId = nickname;
+        localStorage.setItem('nickname', nickname);
+
         const newRoomId = this.generateRoomId();
         this.roomId = newRoomId;
         
@@ -139,6 +154,17 @@ class ScreenShareApp {
         const roomCodeInput = document.getElementById('room-code-input');
         if (!roomCodeInput) return;
         
+        // Nickname kontrolü
+        const nickInput = document.getElementById('nickname-input-join');
+        const nickname = (nickInput?.value || '').trim();
+        if (!nickname) {
+            this.showNotification('Lütfen bir takma ad girin', 'error');
+            nickInput?.focus();
+            return;
+        }
+        this.userId = nickname;
+        localStorage.setItem('nickname', nickname);
+
         const roomCode = roomCodeInput.value.trim().toUpperCase();
         
         if (!roomCode) {
@@ -632,6 +658,8 @@ class ScreenShareApp {
                 const videoElement = document.getElementById('screen-view');
                 if (videoElement) {
                     videoElement.srcObject = event.streams[0];
+                    // Viewer tarafında sesi açmayı dene
+                    this.enableViewerAudio(videoElement);
                     this.isSharing = true;
                     this.updateUI();
                     this.showNotification('Yayın başladı!', 'success');
@@ -660,6 +688,12 @@ class ScreenShareApp {
                 offerToReceiveAudio: true,
                 offerToReceiveVideo: true
             });
+            // Voice chat aktifse viewer mikrofonunu ekle
+            if (this.micStream) {
+                this.micStream.getAudioTracks().forEach(track => {
+                    try { peerConnection.addTrack(track, this.micStream); } catch(_) {}
+                });
+            }
             await peerConnection.setLocalDescription(offer);
             
             if (this.socket && this.socket.connected) {
@@ -705,6 +739,34 @@ class ScreenShareApp {
             this.localStream.getTracks().forEach(track => {
                 peerConnection.addTrack(track, this.localStream);
             });
+            // Broadcaster sesli chatte ise mikrofonu da ekle
+            if (this.micStream) {
+                this.micStream.getAudioTracks().forEach(track => {
+                    try { peerConnection.addTrack(track, this.micStream); } catch(_) {}
+                });
+            }
+
+            // Viewer'dan gelen sesleri çal
+            peerConnection.ontrack = (event) => {
+                const hasAudio = event.streams[0].getAudioTracks().length > 0;
+                if (hasAudio) {
+                    const audioId = `remote-audio-${fromId}`;
+                    let audioEl = document.getElementById(audioId);
+                    if (!audioEl) {
+                        audioEl = document.createElement('audio');
+                        audioEl.id = audioId;
+                        audioEl.autoplay = true;
+                        audioEl.playsInline = true;
+                        audioEl.style.display = 'none';
+                        document.body.appendChild(audioEl);
+                    }
+                    audioEl.srcObject = event.streams[0];
+                    audioEl.play().catch(() => {
+                        // Kullanıcı etkileşimi yoksa sessiz kalır; UI'da bildirim göster
+                        this.showNotification('Gelen sesi çalmak için sayfaya dokunun', 'warning');
+                    });
+                }
+            };
 
             peerConnection.oniceconnectionstatechange = () => {
                 console.log('ICE connection state (broadcaster):', peerConnection.iceConnectionState);
@@ -782,20 +844,23 @@ class ScreenShareApp {
             
             const constraints = this.getVideoConstraints();
             
-            this.localStream = await navigator.mediaDevices.getDisplayMedia({
+            // Sistem sesini dahil etmeye çalış
+            const displayConstraints = {
                 video: constraints.video,
-                audio: {
-                    echoCancellation: false,
-                    noiseSuppression: false,
-                    autoGainControl: false,
-                    sampleRate: 48000
-                }
-            });
+                audio: true
+            };
+            try {
+                // Chrome için systemAudio desteği (mümkünse)
+                displayConstraints.audio = { systemAudio: 'include' };
+            } catch(_) {}
+
+            this.localStream = await navigator.mediaDevices.getDisplayMedia(displayConstraints);
 
             this.audioEnabled = this.localStream.getAudioTracks().length > 0;
             
             const videoElement = document.getElementById('screen-view');
             videoElement.srcObject = this.localStream;
+            this.stream = this.localStream;
             
             await new Promise((resolve) => {
                 videoElement.onloadedmetadata = resolve;
@@ -820,6 +885,15 @@ class ScreenShareApp {
                         pc.addTrack(track, this.localStream);
                     }
                 });
+                // Eğer yayıncı sesli chatte ise mikrofonu da gönder
+                if (this.micStream) {
+                    this.micStream.getAudioTracks().forEach(track => {
+                        const existing = pc.getSenders().find(s => s.track && s.track.kind === 'audio' && s.track !== track);
+                        if (!existing) {
+                            try { pc.addTrack(track, this.micStream); } catch(_) {}
+                        }
+                    });
+                }
             });
 
             this.localStream.getVideoTracks()[0].onended = () => {
@@ -840,6 +914,7 @@ class ScreenShareApp {
             this.localStream.getTracks().forEach(track => track.stop());
             this.localStream = null;
         }
+        this.stream = null;
 
         Object.values(this.peerConnections).forEach(pc => pc.close());
         this.peerConnections = {};
@@ -1333,14 +1408,47 @@ class ScreenShareApp {
     }
 
     joinVoiceChat() {
-        this.isInVoiceChat = true;
-        this.updateVoiceUI();
-        this.addVoiceParticipant(this.userId);
-        this.showNotification('Sesli chat\'e katıldınız', 'success');
+        if (this.isInVoiceChat) return;
+        navigator.mediaDevices.getUserMedia({
+            audio: {
+                echoCancellation: true,
+                noiseSuppression: true,
+                autoGainControl: true
+            }
+        }).then(stream => {
+            this.micStream = stream;
+            this.isInVoiceChat = true;
+            this.updateVoiceUI();
+            this.addVoiceParticipant(this.userId);
+            // Var olan tüm peer connection'lara mikrofonu ekle
+            Object.values(this.peerConnections).forEach(pc => {
+                this.micStream.getAudioTracks().forEach(track => {
+                    try { pc.addTrack(track, this.micStream); } catch(_) {}
+                });
+            });
+            this.showNotification('Sesli chat\'e katıldınız', 'success');
+        }).catch(err => {
+            this.showNotification('Mikrofon erişimi reddedildi', 'error');
+            console.error(err);
+        });
     }
 
     leaveVoiceChat() {
+        if (!this.isInVoiceChat) return;
         this.isInVoiceChat = false;
+        // Mikrofon akışını durdur
+        if (this.micStream) {
+            this.micStream.getTracks().forEach(t => t.stop());
+            this.micStream = null;
+        }
+        // Ses gönderimini durdurmak için sender'ları bulun ve kaldırın
+        Object.values(this.peerConnections).forEach(pc => {
+            pc.getSenders().forEach(sender => {
+                if (sender.track && sender.track.kind === 'audio') {
+                    try { pc.removeTrack(sender); } catch(_) {}
+                }
+            });
+        });
         this.updateVoiceUI();
         this.removeVoiceParticipant(this.userId);
         this.showNotification('Sesli chat\'ten ayrıldınız', 'info');
@@ -1472,6 +1580,33 @@ class ScreenShareApp {
         // Show notification
         const modeText = mode === 'viewer' ? 'İzleyici' : 'Yayıncı';
         this.showNotification(`${modeText} moduna geçildi`, 'success');
+    }
+
+    // Viewer tarafında sesi açmayı dener, başarısız olursa "Ses Aç" düğmesi gösterir
+    enableViewerAudio(videoEl) {
+        if (this.currentMode !== 'viewer') return;
+        // Viewer için sessizliği kaldır
+        try {
+            videoEl.muted = false;
+        } catch(_) {}
+        const tryPlay = () => {
+            const p = videoEl.play();
+            if (p && typeof p.then === 'function') {
+                p.then(() => {
+                    document.getElementById('unmute-btn')?.classList.add('hidden');
+                }).catch(() => {
+                    const btn = document.getElementById('unmute-btn');
+                    if (btn) {
+                        btn.classList.remove('hidden');
+                        btn.onclick = () => {
+                            videoEl.muted = false;
+                            videoEl.play().then(() => btn.classList.add('hidden'));
+                        };
+                    }
+                });
+            }
+        };
+        tryPlay();
     }
 
     // YENİ EKLENEN: loadInstructions fonksiyonu

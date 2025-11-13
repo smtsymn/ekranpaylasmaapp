@@ -32,6 +32,9 @@
                         </div>
                         <h4>Yeni Oda Oluştur</h4>
                         <p>Yeni bir oda oluşturup başkalarını davet edin</p>
+                        <div class="room-code-input" style="margin-bottom: 8px;">
+                            <input type="text" id="nickname-input-create" placeholder="Takma adınızı yazın (örn. Samet)" maxlength="24">
+                        </div>
                         <button class="btn btn-primary" id="create-room-btn">
                             <i class="fas fa-plus"></i> Oda Oluştur
                         </button>
@@ -42,6 +45,9 @@
                         </div>
                         <h4>Odaya Katıl</h4>
                         <p>Oda kodunu girerek mevcut bir odaya katılın</p>
+                        <div class="room-code-input" style="margin-bottom: 8px;">
+                            <input type="text" id="nickname-input-join" placeholder="Takma adınızı yazın (örn. Samet)" maxlength="24">
+                        </div>
                         <div class="room-code-input">
                             <input type="text" id="room-code-input" placeholder="Oda kodunu girin" maxlength="20">
                             <button class="btn btn-primary" id="join-room-btn">
@@ -53,7 +59,7 @@
                 <div class="room-footer">
                     <div class="room-info-text">
                         <i class="fas fa-info-circle"></i>
-                        <span>Oda kodu oluşturulduğunda size gösterilecektir</span>
+                        <span>Girmeden önce takma adınızı seçin. Oda kodu oluşturulduğunda size gösterilecektir.</span>
                     </div>
                 </div>
             </div>
@@ -144,6 +150,9 @@
                 <div class="video-section">
                     <div class="video-container">
                         <video id="screen-view" autoplay playsinline muted></video>
+                        <button id="unmute-btn" class="btn btn-primary hidden" style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:5;">
+                            <i class="fas fa-volume-up"></i> Ses Aç
+                        </button>
                         
                         <!-- Placeholder -->
                         <div id="placeholder" class="video-placeholder">
