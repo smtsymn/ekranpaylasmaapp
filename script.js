@@ -205,6 +205,14 @@ class ScreenShareApp {
         if (createRoomBtn) {
             createRoomBtn.addEventListener('click', () => this.createRoom());
         }
+        // Set user badge initials
+        const ub = document.getElementById('user-badge');
+        const ui = document.getElementById('user-initials');
+        if (ub && ui && this.userId) {
+            const parts = this.userId.split(/\s+/).filter(Boolean);
+            const initials = parts.length >= 2 ? (parts[0][0] + parts[1][0]) : this.userId.substring(0, 2);
+            ui.textContent = initials.toUpperCase();
+        }
 
         const joinRoomBtn = document.getElementById('join-room-btn');
         if (joinRoomBtn) {
@@ -302,6 +310,124 @@ class ScreenShareApp {
         if (settingsBtn) {
             settingsBtn.addEventListener('click', () => this.openSettings());
         }
+        
+        // Theme toggle
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        if (themeBtn) {
+            // initial state
+            const savedTheme = localStorage.getItem('theme') || 'dark';
+            document.documentElement.setAttribute('data-theme', savedTheme);
+            this.updateThemeIcon(savedTheme);
+            themeBtn.addEventListener('click', () => {
+                const current = document.documentElement.getAttribute('data-theme') || 'dark';
+                const next = current === 'dark' ? 'light' : 'dark';
+                document.documentElement.setAttribute('data-theme', next);
+                localStorage.setItem('theme', next);
+                this.updateThemeIcon(next);
+            });
+        }
+        
+        // Header quick buttons
+        const headerInfoBtn = document.getElementById('header-info-btn');
+        if (headerInfoBtn) {
+            headerInfoBtn.addEventListener('click', () => {
+                this.toggleInfoPopover();
+                headerInfoBtn.classList.toggle('active');
+            });
+        }
+        const headerStatsBtn = document.getElementById('header-stats-btn');
+        if (headerStatsBtn) {
+            headerStatsBtn.addEventListener('click', () => {
+                this.toggleStatsPopover();
+                headerStatsBtn.classList.toggle('active');
+            });
+        }
+        const closeInfo = document.getElementById('close-popover-info');
+        if (closeInfo) closeInfo.addEventListener('click', () => this.closeInfoPopover());
+        const closeStats = document.getElementById('close-popover-stats');
+        if (closeStats) closeStats.addEventListener('click', () => this.closeStatsPopover());
+        document.addEventListener('click', (e) => this.handlePopoverOutsideClick(e));
+
+        // Emoji picker
+        const emojiBtn = document.getElementById('emoji-btn');
+        const emojiPicker = document.getElementById('emoji-picker');
+        const chatInputEl = document.getElementById('chat-input');
+        if (emojiBtn && emojiPicker && chatInputEl) {
+            emojiBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                emojiPicker.classList.toggle('hidden');
+            });
+            emojiPicker.addEventListener('click', (e) => {
+                const target = e.target;
+                if (target && target.classList.contains('emoji-item')) {
+                    this.insertAtCursor(chatInputEl, target.textContent);
+                    chatInputEl.focus();
+                }
+            });
+            document.addEventListener('click', (e) => {
+                if (!emojiPicker.classList.contains('hidden')) {
+                    const within = emojiPicker.contains(e.target) || emojiBtn.contains(e.target);
+                    if (!within) emojiPicker.classList.add('hidden');
+                }
+            });
+        }
+        // Attach image
+        const attachBtn = document.getElementById('attach-btn');
+        const attachInput = document.getElementById('attach-input');
+        if (attachBtn && attachInput) {
+            attachBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                attachInput.click();
+            });
+            attachInput.addEventListener('change', (e) => {
+                const file = e.target.files && e.target.files[0];
+                if (file) {
+                    this.sendImageMessage(file);
+                    attachInput.value = '';
+                }
+            });
+        }
+        // Stickers
+        this.stickerCatalog = [
+            { id: 'smile_star', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f929.png' }, // star-struck
+            { id: 'heart_eyes', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f60d.png' },
+            { id: 'party', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f973.png' },
+            { id: 'thumbs_up', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f44d.png' },
+            { id: 'fire', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f525.png' },
+            { id: 'rocket', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f680.png' },
+            { id: 'clap', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f44f.png' },
+            { id: 'pray', url: 'https://cdn.jsdelivr.net/gh/twitter/twemoji@14.0.2/assets/72x72/1f64f.png' }
+        ];
+        const stickerBtn = document.getElementById('sticker-btn');
+        const stickerPicker = document.getElementById('sticker-picker');
+        const stickerGrid = document.getElementById('sticker-grid');
+        if (stickerBtn && stickerPicker && stickerGrid) {
+            // populate once
+            if (stickerGrid.children.length === 0) {
+                this.stickerCatalog.forEach(s => {
+                    const btn = document.createElement('button');
+                    btn.className = 'sticker-item';
+                    btn.title = s.id;
+                    btn.innerHTML = `<img src="${s.url}" alt="${s.id}" />`;
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        this.sendStickerMessage(s.id);
+                        stickerPicker.classList.add('hidden');
+                    });
+                    stickerGrid.appendChild(btn);
+                });
+            }
+            stickerBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                stickerPicker.classList.toggle('hidden');
+            });
+            document.addEventListener('click', (e) => {
+                if (!stickerPicker.classList.contains('hidden')) {
+                    const within = stickerPicker.contains(e.target) || stickerBtn.contains(e.target);
+                    if (!within) stickerPicker.classList.add('hidden');
+                }
+            });
+        }
 
         const closeSettingsBtn = document.getElementById('close-settings');
         if (closeSettingsBtn) {
@@ -387,6 +513,86 @@ class ScreenShareApp {
         
         // Window resize
         window.addEventListener('resize', () => this.handleResize());
+
+        // Mobile dock buttons
+        const mobileShare = document.getElementById('mobile-share');
+        if (mobileShare) mobileShare.addEventListener('click', () => {
+            if (!this.isSharing && this.currentMode === 'broadcaster') {
+                this.startSharing();
+            } else if (this.isSharing) {
+                this.stopSharing();
+            } else {
+                this.showNotification('Yayıncı modunda değilsiniz', 'warning');
+            }
+        });
+        const mobileFullscreen = document.getElementById('mobile-fullscreen');
+        if (mobileFullscreen) mobileFullscreen.addEventListener('click', () => this.toggleFullscreen());
+        const mobileChat = document.getElementById('mobile-chat');
+        if (mobileChat) mobileChat.addEventListener('click', () => this.toggleChat());
+    }
+
+    updateThemeIcon(theme) {
+        const themeBtn = document.getElementById('theme-toggle-btn');
+        if (!themeBtn) return;
+        const icon = themeBtn.querySelector('i');
+        if (!icon) return;
+        icon.className = theme === 'dark' ? 'fas fa-moon' : 'fas fa-sun';
+        themeBtn.title = theme === 'dark' ? 'Açık Tema' : 'Koyu Tema';
+    }
+
+    toggleInfoPopover() {
+        const pop = document.getElementById('popover-info');
+        if (!pop) return;
+        pop.classList.toggle('hidden');
+    }
+
+    closeInfoPopover() {
+        const pop = document.getElementById('popover-info');
+        const headerInfoBtn = document.getElementById('header-info-btn');
+        if (!pop) return;
+        pop.classList.add('hidden');
+        if (headerInfoBtn) headerInfoBtn.classList.remove('active');
+    }
+
+    toggleStatsPopover() {
+        const pop = document.getElementById('popover-stats');
+        if (!pop) return;
+        pop.classList.toggle('hidden');
+    }
+
+    closeStatsPopover() {
+        const pop = document.getElementById('popover-stats');
+        const headerStatsBtn = document.getElementById('header-stats-btn');
+        if (!pop) return;
+        pop.classList.add('hidden');
+        if (headerStatsBtn) headerStatsBtn.classList.remove('active');
+    }
+
+    handlePopoverOutsideClick(e) {
+        const infoPop = document.getElementById('popover-info');
+        const statsPop = document.getElementById('popover-stats');
+        const infoBtn = document.getElementById('header-info-btn');
+        const statsBtn = document.getElementById('header-stats-btn');
+        if (infoPop && !infoPop.classList.contains('hidden')) {
+            if (!infoPop.contains(e.target) && e.target !== infoBtn && !infoBtn.contains(e.target)) {
+                this.closeInfoPopover();
+            }
+        }
+        if (statsPop && !statsPop.classList.contains('hidden')) {
+            if (!statsPop.contains(e.target) && e.target !== statsBtn && !statsBtn.contains(e.target)) {
+                this.closeStatsPopover();
+            }
+        }
+    }
+
+    insertAtCursor(input, text) {
+        const start = input.selectionStart ?? input.value.length;
+        const end = input.selectionEnd ?? input.value.length;
+        const before = input.value.substring(0, start);
+        const after = input.value.substring(end, input.value.length);
+        input.value = before + text + after;
+        const cursor = start + text.length;
+        input.selectionStart = input.selectionEnd = cursor;
     }
 
     // YENİ EKLENEN: updateModeUI fonksiyonu
@@ -502,6 +708,13 @@ class ScreenShareApp {
             this.socket.on('chat-message', (data) => {
                 if (data.userId !== this.userId) {
                     this.addChatMessage(data.userId, data.message, false);
+                    if (data.imageData) {
+                        this.addImageToLastMessage(data.imageData);
+                    }
+                    if (data.stickerId) {
+                        const url = this.getStickerUrlById(data.stickerId);
+                        if (url) this.addStickerToLastMessage(url);
+                    }
                 }
             });
 
@@ -1427,6 +1640,119 @@ class ScreenShareApp {
         if (!isOwn && this.settings.chatNotifications) {
             this.playNotificationSound();
         }
+    }
+
+    addImageToLastMessage(dataUrl) {
+        const chatMessages = document.getElementById('chat-messages');
+        const last = chatMessages.lastElementChild;
+        if (!last) return;
+        const img = document.createElement('img');
+        img.className = 'chat-message-image';
+        img.src = dataUrl;
+        img.alt = 'image';
+        last.appendChild(img);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+    
+    addStickerToLastMessage(url) {
+        const chatMessages = document.getElementById('chat-messages');
+        const last = chatMessages.lastElementChild;
+        if (!last) return;
+        const img = document.createElement('img');
+        img.className = 'chat-message-sticker';
+        img.src = url;
+        img.alt = 'sticker';
+        last.appendChild(img);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    async sendImageMessage(file) {
+        const maxBytes = 350 * 1024; // ~350KB
+        const dataUrl = await this.compressImageToDataURL(file, maxBytes);
+        if (!dataUrl) {
+            this.showNotification('Resim gönderilemedi', 'error');
+            return;
+        }
+        // Önce kendi mesaj kartını oluştur
+        this.addChatMessage(this.userId, file.name || 'Resim', true);
+        this.addImageToLastMessage(dataUrl);
+        // Odaya gönder
+        if (this.socket && this.socket.connected && this.roomId) {
+            this.socket.emit('chat-message', {
+                roomId: this.roomId,
+                userId: this.userId,
+                message: file.name || 'Resim',
+                imageData: dataUrl,
+                imageName: file.name || 'image',
+                mimeType: file.type || 'image/png',
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            this.showNotification('Bağlantı yok, resim gönderilemedi', 'error');
+        }
+    }
+
+    compressImageToDataURL(file, maxBytes) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    // Target width based on aspect; cap to 1024px
+                    const maxW = 1024;
+                    let w = img.width;
+                    let h = img.height;
+                    if (w > maxW) {
+                        const scale = maxW / w;
+                        w = maxW;
+                        h = Math.round(h * scale);
+                    }
+                    canvas.width = w;
+                    canvas.height = h;
+                    ctx.drawImage(img, 0, 0, w, h);
+                    let quality = 0.85;
+                    let dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    // Reduce quality iteratively if too big
+                    const step = 0.1;
+                    while (dataUrl.length > maxBytes * 1.37 && quality > 0.4) { // base64 overhead ~1.37
+                        quality -= step;
+                        dataUrl = canvas.toDataURL('image/jpeg', quality);
+                    }
+                    resolve(dataUrl);
+                };
+                img.onerror = () => resolve(null);
+                img.src = reader.result;
+            };
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    sendStickerMessage(stickerId) {
+        const url = this.getStickerUrlById(stickerId);
+        if (!url) return;
+        // Own message bubble
+        this.addChatMessage(this.userId, 'Sticker', true);
+        this.addStickerToLastMessage(url);
+        // Socket
+        if (this.socket && this.socket.connected && this.roomId) {
+            this.socket.emit('chat-message', {
+                roomId: this.roomId,
+                userId: this.userId,
+                message: 'Sticker',
+                stickerId,
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            this.showNotification('Bağlantı yok, sticker gönderilemedi', 'error');
+        }
+    }
+
+    getStickerUrlById(id) {
+        const found = (this.stickerCatalog || []).find(s => s.id === id);
+        return found ? found.url : null;
     }
 
     joinVoiceChat() {

@@ -6,23 +6,33 @@
 }
 
 :root {
-    --primary-color: #3b82f6;
+    --primary-color: #ae6cda;
     --primary-hover: #2563eb;
     --secondary-color: #64748b;
     --success-color: #10b981;
     --danger-color: #ef4444;
     --warning-color: #f59e0b;
-    --dark-bg: #0f172a;
-    --dark-surface: #1e293b;
-    --dark-border: #334155;
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #64748b;
+    --dark-bg: #0b1220;
+    --dark-surface: #151c2f;
+    --dark-border: #273044;
+    --text-primary: #f3f6fb;
+    --text-secondary: #c3cfdd;
+    --text-muted: #7c8aa5;
     --border-radius: 12px;
-    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
-    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-    --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-    --transition: all 0.2s ease-in-out;
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.04);
+    --shadow-md: 0 3px 6px -2px rgb(0 0 0 / 0.12), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+    --shadow-lg: 0 8px 12px -4px rgb(0 0 0 / 0.10), 0 4px 8px -6px rgb(0 0 0 / 0.08);
+    --transition: all 0.18s ease-in-out;
+}
+
+/* Light theme overrides */
+:root[data-theme="light"] {
+    --dark-bg: #f6f8fc;
+    --dark-surface: #ffffff;
+    --dark-border: #e5e7eb;
+    --text-primary: #0f172a;
+    --text-secondary: #334155;
+    --text-muted: #64748b;
 }
 
 body {
@@ -86,7 +96,7 @@ body {
     position: sticky;
     top: 0;
     z-index: 100;
-    backdrop-filter: blur(10px);
+    /* Ağır blur kaldırıldı: performans iyileştirmesi */
 }
 
 .header-content {
@@ -116,6 +126,59 @@ body {
     display: flex;
     align-items: center;
     gap: 1rem;
+}
+
+.user-badge {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.85rem;
+    box-shadow: var(--shadow-sm);
+}
+
+.header .btn.btn-icon.active {
+    outline: 2px solid rgba(59,130,246,0.35);
+    outline-offset: 2px;
+    border-radius: 10px;
+}
+
+.popover-host {
+    position: relative;
+}
+
+.popover {
+    position: absolute;
+    top: 48px;
+    right: 0;
+    width: 360px;
+    max-height: 60vh;
+    overflow: auto;
+    background: var(--dark-surface);
+    border: 1px solid var(--dark-border);
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-lg);
+    padding: 0.75rem;
+    z-index: 2000;
+}
+
+.popover-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.25rem 0.25rem 0.5rem 0.25rem;
+    border-bottom: 1px solid var(--dark-border);
+    margin-bottom: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.popover-content {
+    display: block;
 }
 
 .connection-info {
@@ -188,7 +251,7 @@ body {
     background: var(--dark-surface);
     border-radius: var(--border-radius);
     overflow: hidden;
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
     aspect-ratio: 16/9;
     min-height: 400px;
 }
@@ -244,6 +307,20 @@ video {
     gap: 0.5rem;
 }
 
+/* Viewer unmute button */
+#unmute-btn {
+    box-shadow: var(--shadow-md);
+    border-radius: 999px;
+    padding: 0.75rem 1.25rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--primary-hover));
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #fff;
+}
+#unmute-btn:hover {
+    filter: brightness(1.05);
+    transform: translateY(-1px);
+}
+
 .status-overlay {
     position: absolute;
     top: 0;
@@ -269,7 +346,7 @@ video {
     background: var(--dark-surface);
     border-radius: var(--border-radius);
     padding: 1.5rem;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
 }
 
 .control-group {
@@ -310,7 +387,7 @@ video {
     background: var(--dark-surface);
     border-radius: var(--border-radius);
     padding: 1.5rem;
-    box-shadow: var(--shadow-md);
+    box-shadow: var(--shadow-sm);
 }
 
 /* Chat Section */
@@ -358,8 +435,8 @@ video {
 }
 
 .chat-messages {
-    max-height: 300px;
-    min-height: 200px;
+    max-height: 100px;
+    min-height: 400px;
     overflow-y: auto;
     margin-bottom: 1rem;
     padding: 0.75rem;
@@ -417,11 +494,103 @@ video {
     word-wrap: break-word;
 }
 
+.chat-message-image {
+    margin-top: 0.5rem;
+    max-width: 100%;
+    border-radius: 8px;
+    border: 1px solid var(--dark-border);
+    box-shadow: var(--shadow-sm);
+}
+
 .chat-input-container {
     display: flex;
     gap: 0.5rem;
 }
 
+.emoji-wrapper {
+    position: relative;
+}
+
+.emoji-picker {
+    position: absolute;
+    bottom: 42px;
+    left: 0;
+    width: 220px;
+    background: var(--dark-surface);
+    border: 1px solid var(--dark-border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    padding: 0.5rem;
+    z-index: 1500;
+}
+
+.emoji-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 0.25rem;
+}
+
+.emoji-item {
+    background: transparent;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+    padding: 0.25rem;
+    border-radius: 6px;
+}
+
+.emoji-item:hover {
+    background: rgba(255,255,255,0.06);
+}
+
+.sticker-picker {
+    position: absolute;
+    bottom: 42px;
+    left: 0;
+    width: 260px;
+    max-height: 240px;
+    overflow-y: auto;
+    background: var(--dark-surface);
+    border: 1px solid var(--dark-border);
+    border-radius: 10px;
+    box-shadow: var(--shadow-lg);
+    padding: 0.5rem;
+    z-index: 1500;
+}
+
+.sticker-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+}
+
+.sticker-item {
+    background: transparent;
+    border: 1px solid var(--dark-border);
+    border-radius: 10px;
+    padding: 0.25rem;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.sticker-item:hover {
+    transform: translateY(-1px);
+    border-color: var(--primary-color);
+}
+
+.sticker-item img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: 8px;
+}
+
+.chat-message-sticker {
+    margin-top: 0.5rem;
+    max-width: 160px;
+    height: auto;
+    display: block;
+}
 .chat-input {
     flex: 1;
     padding: 0.75rem;
@@ -539,11 +708,13 @@ video {
     border-radius: 3px;
     outline: none;
     -webkit-appearance: none;
+    appearance: none;
     margin: 1rem 0;
 }
 
 .form-range::-webkit-slider-thumb {
     -webkit-appearance: none;
+    appearance: none;
     appearance: none;
     width: 20px;
     height: 20px;
@@ -761,12 +932,12 @@ video {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.8);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
     align-items: center;
     justify-content: center;
     z-index: 1000;
-    backdrop-filter: blur(5px);
+    /* Ağır blur kaldırıldı: performans iyileştirmesi */
 }
 
 .modal.hidden {
@@ -798,8 +969,8 @@ video {
 
 .room-option:hover {
     border-color: var(--primary-color);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .room-icon {
@@ -898,8 +1069,8 @@ video {
 
 .mode-option:hover {
     border-color: var(--primary-color);
-    transform: translateY(-2px);
-    box-shadow: var(--shadow-lg);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
 }
 
 .mode-option.selected {
@@ -1276,6 +1447,14 @@ video {
     .footer-links {
         justify-content: center;
     }
+
+    /* Show mobile dock on tablets/phones */
+    .mobile-dock {
+        display: flex;
+    }
+    .control-panel {
+        padding-bottom: 4rem; /* leave room for dock */
+    }
 }
 
 @media (max-width: 480px) {
@@ -1318,6 +1497,24 @@ video {
     }
 }
 
+/* Mobile bottom dock */
+.mobile-dock {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    display: none;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem calc(0.5rem + env(safe-area-inset-bottom));
+    background: var(--dark-surface);
+    border-top: 1px solid var(--dark-border);
+    box-shadow: 0 -6px 16px rgba(0,0,0,0.15);
+    z-index: 1200;
+}
+
+.mobile-dock .btn {
+    flex: 1;
+}
 /* Dark mode optimizations */
 @media (prefers-color-scheme: dark) {
     :root {

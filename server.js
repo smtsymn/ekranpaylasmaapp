@@ -96,14 +96,18 @@ io.on('connection', (socket) => {
 
     // Chat mesajı
     socket.on('chat-message', (data) => {
-        const { roomId, userId, message, timestamp } = data;
+        const { roomId, userId, message, timestamp, imageData, imageName, mimeType, stickerId } = data;
         if (roomId && socket.data?.roomId === roomId) {
             console.log(`Chat mesajı: ${userId} -> Oda: ${roomId}`);
             // Odaya mesajı broadcast et
             io.to(roomId).emit('chat-message', {
                 userId,
                 message,
-                timestamp
+                timestamp,
+                imageData,
+                imageName,
+                mimeType,
+                stickerId
             });
         }
     });

@@ -131,6 +131,66 @@
                         <div id="status-indicator" class="status-dot"></div>
                         <span id="room-info" class="room-info"></span> <!-- Yeni eklenen -->
                     </div>
+                    <button id="theme-toggle-btn" class="btn btn-icon" title="Tema">
+                        <i class="fas fa-moon"></i>
+                    </button>
+                    <div class="popover-host">
+                        <button id="header-info-btn" class="btn btn-icon" title="Bilgi">
+                        <i class="fas fa-info-circle"></i>
+                        </button>
+                        <div id="popover-info" class="popover hidden">
+                            <div class="popover-header">
+                                <span><i class="fas fa-info-circle"></i> Bilgi</span>
+                                <button id="close-popover-info" class="btn btn-icon" title="Kapat">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div id="popover-info-content" class="popover-content">
+                                <div class="sidebar-section info-section" style="box-shadow:none;padding:0;border:none;background:transparent;">
+                                    <div class="info-container" id="info-container">
+                                        <div class="info-content" id="info-content">
+                                            <!-- Info content will be loaded dynamically -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="popover-host">
+                        <button id="header-stats-btn" class="btn btn-icon" title="İstatistikler">
+                        <i class="fas fa-chart-line"></i>
+                        </button>
+                        <div id="popover-stats" class="popover hidden">
+                            <div class="popover-header">
+                                <span><i class="fas fa-chart-line"></i> İstatistikler</span>
+                                <button id="close-popover-stats" class="btn btn-icon" title="Kapat">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                            <div id="popover-stats-content" class="popover-content">
+                                <div class="sidebar-section" style="box-shadow:none;padding:0;border:none;background:transparent;">
+                                    <h3 style="display:none;"><i class="fas fa-chart-line"></i> İstatistikler</h3>
+                                    <div class="stats-grid">
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="fps-counter">0</div>
+                                            <div class="stat-label">FPS</div>
+                                        </div>
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="latency-counter">0ms</div>
+                                            <div class="stat-label">Gecikme</div>
+                                        </div>
+                                        <div class="stat-item">
+                                            <div class="stat-value" id="bitrate-counter">0</div>
+                                            <div class="stat-label">Bitrate</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="user-badge" class="user-badge" title="Kullanıcı">
+                        <span id="user-initials">U</span>
+                    </div>
                     <button id="settings-btn" class="btn btn-icon" title="Ayarlar">
                         <i class="fas fa-cog"></i>
                     </button>
@@ -238,6 +298,43 @@
                                 </div>
                             </div>
                             <div class="chat-input-container">
+                                <div class="emoji-wrapper">
+                                    <button id="emoji-btn" class="btn btn-icon btn-small" title="Emoji">
+                                        <i class="fas fa-smile"></i>
+                                    </button>
+                                    <div id="emoji-picker" class="emoji-picker hidden">
+                                        <div class="emoji-grid">
+                                            <button class="emoji-item">😀</button>
+                                            <button class="emoji-item">😁</button>
+                                            <button class="emoji-item">😂</button>
+                                            <button class="emoji-item">😊</button>
+                                            <button class="emoji-item">😍</button>
+                                            <button class="emoji-item">😎</button>
+                                            <button class="emoji-item">🥳</button>
+                                            <button class="emoji-item">🤔</button>
+                                            <button class="emoji-item">👍</button>
+                                            <button class="emoji-item">🙏</button>
+                                            <button class="emoji-item">🔥</button>
+                                            <button class="emoji-item">💯</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                 <div class="emoji-wrapper">
+                                     <button id="sticker-btn" class="btn btn-icon btn-small" title="Sticker">
+                                         <i class="fas fa-sticky-note"></i>
+                                     </button>
+                                     <div id="sticker-picker" class="sticker-picker hidden">
+                                         <div id="sticker-grid" class="sticker-grid">
+                                             <!-- Stickers will be injected -->
+                                         </div>
+                                     </div>
+                                 </div>
+                                 <div class="emoji-wrapper">
+                                     <button id="attach-btn" class="btn btn-icon btn-small" title="Resim Ekle">
+                                         <i class="fas fa-paperclip"></i>
+                                     </button>
+                                     <input id="attach-input" type="file" accept="image/*" class="hidden">
+                                 </div>
                                 <input type="text" id="chat-input" class="chat-input" placeholder="Mesajınızı yazın..." maxlength="200">
                                 <button id="send-chat" class="btn btn-primary btn-small">
                                     <i class="fas fa-paper-plane"></i>
@@ -277,43 +374,27 @@
                         </div>
                     </div>
 
-                    <!-- Quick Info -->
-                    <div class="sidebar-section info-section">
-                        <div class="info-header">
-                            <h3><i class="fas fa-info-circle"></i> Bilgi</h3>
-                            <button id="toggle-info" class="btn btn-icon btn-small" title="Bilgi'yi Gizle/Göster">
-                                <i class="fas fa-chevron-down"></i>
-                            </button>
-                        </div>
-                        <div class="info-container" id="info-container">
-                            <div class="info-content" id="info-content">
-                                <!-- Info content will be loaded dynamically -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Stats -->
-                    <div class="sidebar-section">
-                        <h3><i class="fas fa-chart-line"></i> İstatistikler</h3>
-                        <div class="stats-grid">
-                            <div class="stat-item">
-                                <div class="stat-value" id="fps-counter">0</div>
-                                <div class="stat-label">FPS</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="latency-counter">0ms</div>
-                                <div class="stat-label">Gecikme</div>
-                            </div>
-                            <div class="stat-item">
-                                <div class="stat-value" id="bitrate-counter">0</div>
-                                <div class="stat-label">Bitrate</div>
-                            </div>
-                        </div>
-                    </div>
+                    <!-- Quick Info ve İstatistikler üst popover'a taşındı -->
                 </div>
             </div>
         </div>
     </main>
+
+    <!-- Mobile Bottom Dock -->
+    <div class="mobile-dock">
+        <button id="mobile-share" class="btn btn-primary">
+            <i class="fas fa-share-alt"></i>
+            <span>Paylaş</span>
+        </button>
+        <button id="mobile-fullscreen" class="btn btn-secondary">
+            <i class="fas fa-expand"></i>
+            <span>Tam Ekran</span>
+        </button>
+        <button id="mobile-chat" class="btn btn-secondary">
+            <i class="fas fa-comments"></i>
+            <span>Chat</span>
+        </button>
+    </div>
 
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal hidden">
@@ -393,7 +474,7 @@
         <div class="container">
             <div class="footer-content">
                 <div class="footer-info">
-                    <p>&copy; 2024 ScreenShare Pro. Tüm hakları saklıdır.</p>
+                    <p>&copy; 2025 ScreenShare SMT. Tüm hakları saklıdır.</p>
                 </div>
                 <div class="footer-links">
                     <a href="#" class="footer-link">Gizlilik</a>
